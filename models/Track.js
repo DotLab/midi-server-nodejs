@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 const ObjectId = mongoose.Schema.Types.ObjectId;
-const {YES, NO} = require('../utils');
 
 module.exports = mongoose.model('Track', {
   artistId: ObjectId,
@@ -13,16 +12,12 @@ module.exports = mongoose.model('Track', {
   path: String,
   coverUrl: String,
   trackUrl: String,
-  mainColor: [{
-    color1: String,
-    color2: String,
-  }],
+  colors: Array,
 
   genre: String,
   tags: String,
   description: String,
   releaseDate: Date,
-  duration: Number,
   likeCount: Number,
   commentCount: Number,
 });

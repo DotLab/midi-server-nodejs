@@ -1,8 +1,5 @@
 const User = require('../models/User');
-const Thing = require('../models/Thing');
-const Make = require('../models/Make');
 const Comment = require('../models/Comment');
-const UserLikeMake = require('../models/UserLikeMake');
 const tokenService = require('../services/tokenService');
 const {apiError, apiSuccess} = require('./utils');
 const {BAD_REQUEST, FORBIDDEN, NOT_FOUND, calcFileHash} = require('./utils');

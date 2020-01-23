@@ -11,7 +11,7 @@ router.post('/upload', createTypeChecker({
   const token = req.body.token;
 
   res.json(await albumController.upload({
-    token, 
+    token,
   }));
 });
 
