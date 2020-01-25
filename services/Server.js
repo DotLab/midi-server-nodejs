@@ -35,4 +35,12 @@ module.exports = class Server {
         .file(filename).getSignedUrl(options);
     return url;
   }
+
+  async downloadFile(dest, src) {
+    const options = {
+      destination: dest,
+    };
+
+    await this.storage.bucket(this.bucketName).file(src).download(options);
+  }
 };

@@ -4,6 +4,7 @@ const ObjectId = mongoose.Schema.Types.ObjectId;
 module.exports = mongoose.model('Track', {
   artistId: ObjectId,
   artistName: String,
+  artistAvatarUrl: String,
   albumId: ObjectId,
 
   fileName: String,
@@ -14,10 +15,12 @@ module.exports = mongoose.model('Track', {
   trackUrl: String,
   colors: Array,
 
+  title: String,
   genre: String,
   tags: String,
   description: String,
   releaseDate: Date,
   likeCount: Number,
+  playCount: Number,
   commentCount: Number,
 });

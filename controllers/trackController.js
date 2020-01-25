@@ -1,9 +1,11 @@
 const User = require('../models/User');
 const Track = require('../models/Track');
 const Album = require('../models/Album');
+const Comment = require('../models/Comment');
+const UserLikeTrack = require('../models/UserLikeTrack');
 const tokenService = require('../services/tokenService');
 const {apiError, apiSuccess} = require('./utils');
-const {BAD_REQUEST, calcFileHash} = require('./utils');
+const {BAD_REQUEST, NOT_FOUND, FORBIDDEN, calcFileHash} = require('./utils');
 const sharp = require('sharp');
 const Vibrant = require('node-vibrant');
 const Server = require('../services/Server');
@@ -35,7 +37,7 @@ exports.coverUpload = async function(params) {
   const buf = Buffer.from(params.buffer, 'base64');
 
   const url = server.bucketGetPublicUrl(remotePath);
-  await sharp(buf).resize(256, 256).jpeg({quality: 80}).toFile(localPath);
+  await sharp(buf).resize(380, 380).jpeg({quality: 80}).toFile(localPath);
   await server.bucketUploadPublic(localPath, remotePath);
   fs.unlink(localPath, () => { });
 
@@ -46,7 +48,7 @@ exports.upload = async function(params) {
   const storage = new Storage();
   const server = new Server(storage, tempPath);
   const userId = tokenService.getUserId(params.token);
-  const userName = await User.findOne({_id: userId}).select('userName');
+  const user = await User.findOne({_id: userId}).select('userName avatarUrl');
 
   const trackIds = [];
   const colors = [];
@@ -65,18 +67,22 @@ exports.upload = async function(params) {
       return apiError(BAD_REQUEST);
     }
 
-    const remotePath = `/midi/${hash}.mid`;
-    const localPath = `${tempPath}/${hash}.mid`;
+    const remotePath = `/midi/${hash}.mp3`;
+    const localPath = `${tempPath}/${hash}.mp3`;
 
     const url = server.bucketGetPublicUrl(remotePath);
 
     fs.writeFileSync(localPath, params.buffers[i], 'base64');
+    // console.log(params.buffers[i]);
+    // fs.writeFileSync(localPath, params.buffers[i]);
     await server.bucketUploadPublic(localPath, remotePath);
     fs.unlink(localPath, () => { });
 
     const track = await Track.create({
       artistId: userId,
-      artistName: userName.userName,
+      artistName: user.userName,
+      artistAvatarUrl: user.avatarUrl,
+
       fileName: params.fileNames[i],
       fileSize: params.fileSizes[i],
       hash: hash,
@@ -85,21 +91,29 @@ exports.upload = async function(params) {
       trackUrl: url,
       colors: colors,
 
+      title: params.title,
       genre: params.genre,
       tags: params.tags,
       description: params.description,
       releaseDate: new Date(),
       likeCount: 0,
+      playCount: 0,
       commentCount: 0,
     });
 
     trackIds.push(track.id);
   }
 
-  if (params.buffers.length > 1) {
+  User.findByIdAndUpdate(userId, {
+    $inc: {trackCount: params.buffers.length},
+  }).exec();
+
+  if (params.type === 'album') {
     const album = await Album.create({
       artistId: userId,
-      artistName: userName.userName,
+      artistName: user.userName,
+      artistAvatarUrl: user.avatarUrl,
+
       coverUrl: params.coverUrl,
       colors: colors,
       tags: params.tags,
@@ -109,6 +123,10 @@ exports.upload = async function(params) {
       likeCount: 0,
       commentCount: 0,
     });
+
+    User.findByIdAndUpdate(userId, {
+      $inc: {albumCount: 1},
+    }).exec();
 
     await Promise.all(trackIds.map((id) => {
       Track.findByIdAndUpdate(id, {
@@ -120,3 +138,151 @@ exports.upload = async function(params) {
     return apiSuccess(trackIds[0]);
   }
 };
+
+exports.detail = async function(params) {
+  const track = await Track.findById(params.trackId);
+  if (!track) {
+    return apiError(NOT_FOUND);
+  }
+
+  return apiSuccess(track);
+};
+
+
+exports.createComment = async function(params) {
+  const userId = tokenService.getUserId(params.token);
+  const user = await User.findOne({_id: userId}).select('userName avatarUrl');
+  const track = await Track.findById(params.trackId);
+  if (!track) {
+    return apiError(NOT_FOUND);
+  }
+
+  await Comment.create({
+    targetId: params.trackId,
+    targetAuthorId: track.artistId,
+    commentAuthorId: userId,
+    commentAuthorName: user.userName,
+    commentAuthorAvatarUrl: user.avatarUrl,
+    body: params.comment,
+    date: new Date(),
+    timestamp: params.timestamp,
+  });
+
+  Track.findByIdAndUpdate(params.trackId, {
+    $inc: {commentCount: 1},
+  }).exec();
+
+  return apiSuccess();
+};
+
+exports.deleteComment = async function(params) {
+  const userId = tokenService.getUserId(params.token);
+  const comment = await Comment.findById(params.commentId);
+
+  if (!comment) {
+    return apiError(NOT_FOUND);
+  }
+  if (userId !== comment.commentAuthorId.toString() && userId !== comment.targetAuthorId.toString()) {
+    return apiError(FORBIDDEN);
+  }
+
+  await Promise.all([
+    Track.findByIdAndUpdate(comment.targetId, {
+      $inc: {commentCount: -1},
+    }),
+    Comment.findByIdAndRemove(params.commentId),
+  ]);
+
+  return apiSuccess();
+};
+
+exports.commentList = async function(params) {
+  const count = await Track.find({_id: params.trackId}).countDocuments();
+  if (count === 0) {
+    return apiError(BAD_REQUEST);
+  }
+
+  const comments = await Comment.find({targetId: params.trackId}).sort({date: -1}).limit(params.limit).lean().exec();
+  const userId = tokenService.getUserId(params.token);
+
+  comments.forEach((comment) => {
+    comment.isOwner = (comment.targetAuthorId == userId || comment.commentAuthorId == userId) ? true : false;
+  });
+
+  return apiSuccess(comments);
+};
+
+exports.inAlbum = async function(params) {
+  const track = await Track.findById(params.trackId).select('albumId');
+  if (!track) {
+    return apiError(NOT_FOUND);
+  }
+  if (!track.albumId) {
+    return apiSuccess();
+  }
+
+  const album = await Album.findById(track.albumId);
+  return apiSuccess(album);
+};
+
+exports.relatedTracks = async function(params) {
+  const track = await Track.findById(params.trackId).select('albumId artistId');
+  if (!track) {
+    return apiError(NOT_FOUND);
+  }
+  if (!track.albumId) {
+    const tracks = await Track.find({
+      $and: [{artistId: track.artistId}, {_id: {$ne: track._id}}],
+    }).exec();
+    return apiSuccess(tracks);
+  }
+
+  const tracks = await Track.find({
+    $and: [
+      {$or: [{albumId: track.albumId}, {artistId: track.artistId}]},
+      {_id: {$ne: track._id}},
+    ],
+  }).exec();
+  console.log(tracks, 'here');
+  return apiSuccess(tracks);
+};
+
+exports.getSignedUrl = async function(params) {
+  const storage = new Storage();
+  const server = new Server(storage, tempPath);
+  const track = await Track.findById(params.trackId);
+  if (!track) {
+    return apiError(NOT_FOUND);
+  }
+
+  const url = await server.generateSignedUrl('/midi/' + track.hash + '.mp3');
+
+  return apiSuccess(url);
+};
+
+exports.download = async function(params) {
+  const storage = new Storage();
+  const server = new Server(storage, tempPath);
+  const track = await Track.findById(params.trackId);
+  if (!track) {
+    return apiError(NOT_FOUND);
+  }
+  await server.downloadFile(track.fileName, '/midi/' + track.hash + '.mp3');
+  console.log('/midi/' + track.hash + '.mp3');
+  return apiSuccess();
+};
+
+exports.likeStatus = async function(params) {
+  const userId = tokenService.getUserId(params.token);
+  const trackCount = await Track.find({_id: params.trackId}).countDocuments();
+  if (trackCount === 0) {
+    return apiError(NOT_FOUND);
+  }
+
+  const likeCount = await UserLikeTrack.find({trackId: params.trackId, userId: userId}).countDocuments();
+  if (likeCount === 0) {
+    return apiSuccess(false);
+  }
+  return apiSuccess(true);
+}
+;

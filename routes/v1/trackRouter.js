@@ -2,7 +2,7 @@ const express = require('express');
 // eslint-disable-next-line new-cap
 const router = express.Router();
 const trackController = require('../../controllers/trackController');
-const {createTypeChecker, STRING, NUMBER, createTokenChecker} = require('./utils.js');
+const {createTypeChecker, STRING, OBJECT_ID, NUMBER, createTokenChecker} = require('./utils.js');
 
 router.post('/cover', createTypeChecker({
   'token': STRING,
@@ -42,5 +42,108 @@ router.post('/upload', createTypeChecker({
   }));
 });
 
+router.post('/detail', createTypeChecker({
+  'trackId': OBJECT_ID,
+}), async (req, res) => {
+  const trackId = req.body.trackId;
+
+  res.json(await trackController.detail({
+    trackId,
+  }));
+});
+
+router.post('/comment/create', createTypeChecker({
+  'token': STRING,
+  'trackId': OBJECT_ID,
+  'comment': STRING,
+  'timestamp': NUMBER,
+}), createTokenChecker(), async (req, res) => {
+  const token = req.body.token;
+  const trackId = req.body.trackId;
+  const comment = req.body.comment;
+  const timestamp = req.body.timestamp;
+  res.json(await trackController.createComment({
+    token, trackId, comment, timestamp,
+  }));
+});
+
+router.post('/comment/delete', createTypeChecker({
+  'token': STRING,
+  'commentId': OBJECT_ID,
+}), createTokenChecker(), async (req, res) => {
+  const token = req.body.token;
+  const commentId = req.body.commentId;
+
+  res.json(await trackController.deleteComment({
+    token, commentId,
+  }));
+});
+
+
+router.post('/comment-list', createTypeChecker({
+  '-token': STRING,
+  'trackId': OBJECT_ID,
+  'limit': NUMBER,
+}), async (req, res) => {
+  const token = req.body.token;
+  const trackId = req.body.trackId;
+  const limit = req.body.limit;
+
+  res.json(await trackController.commentList({
+    token, trackId, limit,
+  }));
+});
+
+router.post('/in-album', createTypeChecker({
+  'trackId': OBJECT_ID,
+}), async (req, res) => {
+  const trackId = req.body.trackId;
+
+  res.json(await trackController.inAlbum({
+    trackId,
+  }));
+});
+
+router.post('/related-tracks', createTypeChecker({
+  'trackId': OBJECT_ID,
+}), async (req, res) => {
+  const trackId = req.body.trackId;
+
+  res.json(await trackController.relatedTracks({
+    trackId,
+  }));
+});
+
+router.post('/signed-url', createTypeChecker({
+  'trackId': OBJECT_ID,
+}), async (req, res) => {
+  const trackId = req.body.trackId;
+
+  res.json(await trackController.getSignedUrl({
+    trackId,
+  }));
+});
+
+router.post('/download', createTypeChecker({
+  'trackId': OBJECT_ID,
+}), async (req, res) => {
+  const trackId = req.body.trackId;
+
+  res.json(await trackController.download({
+    trackId,
+  }));
+});
+
+router.post('/like-status', createTypeChecker({
+  'token': STRING,
+  'trackId': OBJECT_ID,
+}), createTokenChecker(), async (req, res) => {
+  const token = req.body.token;
+  const trackId = req.body.trackId;
+
+  res.json(await trackController.likeStatus({
+    token, trackId,
+  }));
+});
 
 module.exports = router;

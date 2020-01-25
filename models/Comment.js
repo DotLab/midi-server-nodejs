@@ -9,4 +9,5 @@ module.exports = mongoose.model('Comment', {
   commentAuthorAvatarUrl: String,
   body: String,
   date: Date,
+  timestamp: Number,
 });

@@ -2,7 +2,7 @@ const express = require('express');
 // eslint-disable-next-line new-cap
 const router = express.Router();
 const userController = require('../../controllers/userController');
-const {createTypeChecker, createTokenChecker, STRING} = require('./utils.js');
+const {createTypeChecker, createTokenChecker, STRING, OBJECT_ID} = require('./utils.js');
 
 router.post('/register', createTypeChecker({
   'userName': STRING,
@@ -121,6 +121,16 @@ router.post('/get-avatar', createTypeChecker({
 
   res.json(await userController.getAvatarUrl({
     userName,
+  }));
+});
+
+router.post('/artist-info', createTypeChecker({
+  'artistId': OBJECT_ID,
+}), async (req, res) => {
+  const userId = req.body.artistId;
+
+  res.json(await userController.artistInfo({
+    userId,
   }));
 });
 
