@@ -10,6 +10,8 @@ const sharp = require('sharp');
 const Vibrant = require('node-vibrant');
 const Server = require('../services/Server');
 const {Storage} = require('@google-cloud/storage');
+const mongoose = require('mongoose');
+const ObjectId = mongoose.Types.ObjectId;
 
 const tempPath = './temp';
 const fs = require('fs');
@@ -272,6 +274,63 @@ exports.download = async function(params) {
   return apiSuccess();
 };
 
+
+exports.like = async function(params) {
+  const userId = tokenService.getUserId(params.token);
+  const trackCount = await Track.find({_id: params.trackId}).countDocuments();
+  if (trackCount === 0) {
+    return apiError(NOT_FOUND);
+  }
+  const existingCount = await UserLikeTrack.find({userId: userId, trackId: params.trackId}).countDocuments();
+  if (existingCount > 0) {
+    // The user already liked trackId
+    return apiError(BAD_REQUEST);
+  }
+
+  await Promise.all([
+    UserLikeTrack.create({
+      userId: userId,
+      trackId: params.trackId,
+    }),
+    Track.findByIdAndUpdate(params.trackId, {
+      $inc: {likeCount: 1},
+    }),
+  ]);
+
+  return apiSuccess();
+};
+
+exports.unlike = async function(params) {
+  const userId = tokenService.getUserId(params.token);
+  const trackCount = await Track.find({_id: params.trackId}).countDocuments();
+  if (trackCount === 0) {
+    return apiError(NOT_FOUND);
+  }
+  // If the user did not like trackId
+  const existingCount = await UserLikeTrack.find({userId: userId, trackId: params.trackId}).countDocuments();
+  if (existingCount === 0) {
+    return apiError(BAD_REQUEST);
+  }
+
+  await Promise.all([
+    Track.findByIdAndUpdate(params.trackId, {
+      $inc: {likeCount: -1},
+    }),
+    UserLikeTrack.deleteMany({userId: userId, trackId: params.trackId}),
+  ]);
+
+  return apiSuccess();
+};
+
+exports.likeCount = async function(params) {
+  const track = await Track.findById(params.trackId).select('likeCount');
+  if (!track) {
+    return apiError(NOT_FOUND);
+  }
+  return apiSuccess(track.likeCount);
+};
+
+
 exports.likeStatus = async function(params) {
   const userId = tokenService.getUserId(params.token);
   const trackCount = await Track.find({_id: params.trackId}).countDocuments();
@@ -284,5 +343,93 @@ exports.likeStatus = async function(params) {
     return apiSuccess(false);
   }
   return apiSuccess(true);
-}
-;
+};
+
+exports.delete = async function(params) {
+  const userId = tokenService.getUserId(params.token);
+  const track = await Track.findById(params.trackId);
+
+  if (!track) {
+    return apiError(NOT_FOUND);
+  }
+  if (userId !== track.artistId.toString()) {
+    return apiError(FORBIDDEN);
+  }
+
+  await Promise.all([
+    User.findByIdAndUpdate(userId, {
+      $inc: {trackCount: -1},
+    }),
+    Comment.deleteMany({targetId: params.trackId}),
+    UserLikeTrack.deleteMany({trackId: params.trackId}),
+    Track.findByIdAndRemove(params.trackId),
+  ]);
+
+  return apiSuccess();
+};
+
+exports.newReleases = async function(params) {
+  const things = await Track.find({}).sort({releaseDate: -1}).limit(params.limit).exec();
+  return apiSuccess(things);
+};
+
+exports.trending = async function(params) {
+  const things = await Track.find({}).sort({likeCount: -1}).limit(params.limit).exec();
+  return apiSuccess(things);
+};
+
+exports.favored = async function(params) {
+  const userId = tokenService.getUserId(params.token);
+
+  const query = await UserLikeTrack.aggregate([
+    {$match: {userId: new ObjectId(userId)}},
+    {
+      $lookup: {
+        from: 'tracks',
+        localField: 'trackId',
+        foreignField: '_id',
+        as: 'likes',
+      },
+    },
+    {
+      $unwind: {path: '$likes'},
+    },
+    {
+      $replaceWith: '$likes',
+    },
+  ]).sort({uploadDate: 1}).exec();
+
+  return apiSuccess(query);
+};
+
+exports.edit = async function(params) {
+  const track = await Track.findById(params.trackId);
+  if (!track) {
+    return apiError(NOT_FOUND);
+  }
+
+  const userId = tokenService.getUserId(params.token);
+  if (userId !== track.artistId.toString()) {
+    return apiError(FORBIDDEN);
+  }
+
+  const colors = [];
+  await Vibrant.from(params.coverUrl).getPalette()
+      .then((palette) => {
+        colors.push(palette.DarkMuted.getRgb());
+        colors.push(palette.Vibrant.getRgb());
+        colors.push(palette.LightVibrant.getRgb());
+      });
+
+  await Track.findByIdAndUpdate(params.trackId, {
+    $set: {
+      coverUrl: params.coverUrl,
+      title: params.title,
+      genre: params.genre,
+      tags: params.tags,
+      description: params.description,
+    },
+  });
+
+  return apiSuccess();
+};

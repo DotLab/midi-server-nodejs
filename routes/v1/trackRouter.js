@@ -134,6 +134,42 @@ router.post('/download', createTypeChecker({
   }));
 });
 
+
+router.post('/like', createTypeChecker({
+  'token': STRING,
+  'trackId': OBJECT_ID,
+}), createTokenChecker(), async (req, res) => {
+  const token = req.body.token;
+  const trackId = req.body.trackId;
+
+  res.json(await trackController.like({
+    token, trackId,
+  }));
+});
+
+router.post('/unlike', createTypeChecker({
+  'token': STRING,
+  'trackId': OBJECT_ID,
+}), createTokenChecker(), async (req, res) => {
+  const token = req.body.token;
+  const trackId = req.body.trackId;
+
+  res.json(await trackController.unlike({
+    token, trackId,
+  }));
+});
+
+router.post('/like-count', createTypeChecker({
+  'trackId': OBJECT_ID,
+}), async (req, res) => {
+  const trackId = req.body.trackId;
+
+  res.json(await trackController.likeCount({
+    trackId,
+  }));
+});
+
+
 router.post('/like-status', createTypeChecker({
   'token': STRING,
   'trackId': OBJECT_ID,
@@ -146,4 +182,67 @@ router.post('/like-status', createTypeChecker({
   }));
 });
 
+router.post('/delete', createTypeChecker({
+  'token': STRING,
+  'trackId': OBJECT_ID,
+}), createTokenChecker(), async (req, res) => {
+  const token = req.body.token;
+  const trackId = req.body.trackId;
+
+  res.json(await trackController.delete({
+    token, trackId,
+  }));
+});
+
+router.post('/new-releases', createTypeChecker({
+  'limit': NUMBER,
+}), async (req, res) => {
+  const limit = req.body.limit;
+
+  res.json(await trackController.newReleases({
+    limit,
+  }));
+});
+
+router.post('/trending', createTypeChecker({
+  'limit': NUMBER,
+}), async (req, res) => {
+  const limit = req.body.limit;
+
+  res.json(await trackController.trending({
+    limit,
+  }));
+});
+
+router.post('/favored', createTypeChecker({
+  'token': STRING,
+}), createTokenChecker(), async (req, res) => {
+  const token = req.body.token;
+
+  res.json(await trackController.favored({
+    token,
+  }));
+});
+
+router.post('/edit', createTypeChecker({
+  'token': STRING,
+  'trackId': OBJECT_ID,
+  'coverUrl': STRING,
+  'title': STRING,
+  '-genre': STRING,
+  '-tags': STRING,
+  '-description': STRING,
+}), createTokenChecker(), async (req, res) => {
+  const token = req.body.token;
+  const trackId = req.body.trackId;
+  const coverUrl = req.body.coverUrl;
+  const title = req.body.title;
+  const genre = req.body.genre;
+  const tags = req.body.tags;
+  const description = req.body.description;
+
+  res.json(await trackController.edit({
+    token, trackId, coverUrl, title, genre, tags, description,
+  }));
+});
 module.exports = router;
