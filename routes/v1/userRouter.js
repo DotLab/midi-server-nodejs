@@ -125,12 +125,14 @@ router.post('/get-avatar', createTypeChecker({
 });
 
 router.post('/artist-info', createTypeChecker({
-  'artistId': OBJECT_ID,
+  '-artistId': OBJECT_ID,
+  '-artistName': STRING,
 }), async (req, res) => {
   const userId = req.body.artistId;
+  const userName = req.body.artistName;
 
   res.json(await userController.artistInfo({
-    userId,
+    userId, userName,
   }));
 });
 

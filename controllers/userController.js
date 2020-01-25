@@ -160,6 +160,17 @@ exports.getAvatarUrl = async function(params) {
 
 
 exports.artistInfo = async function(params) {
-  const artist = await User.findById(params.userId).select('bio overview followingCount followerCount trackCount albumCount');
-  return apiSuccess(artist);
+  if (params.userId) {
+    const artist = await User.findById(params.userId).select('avatarUrl bio overview followingCount followerCount trackCount albumCount');
+    if (!artist) {
+      return apiError(NOT_FOUND);
+    }
+    return apiSuccess(artist);
+  } else if (params.userName) {
+    const artist = await User.find({userName: params.userName}).select('avatarUrl bio overview followingCount followerCount trackCount albumCount');
+    if (!artist) {
+      return apiError(NOT_FOUND);
+    }
+    return apiSuccess(artist[0]);
+  }
 };
