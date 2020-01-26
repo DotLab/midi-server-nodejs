@@ -8,10 +8,8 @@ module.exports = mongoose.model('User', {
   passwordSalt: String,
   passwordSha256: String,
 
-  bio: String,
   overview: String,
   avatarUrl: String,
-  avatarPath: String,
 
   followingCount: Number,
   followerCount: Number,

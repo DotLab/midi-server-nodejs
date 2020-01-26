@@ -2,7 +2,7 @@ const express = require('express');
 // eslint-disable-next-line new-cap
 const router = express.Router();
 const userController = require('../../controllers/userController');
-const {createTypeChecker, createTokenChecker, STRING, OBJECT_ID} = require('./utils.js');
+const {createTypeChecker, createTokenChecker, STRING, NUMBER, OBJECT_ID} = require('./utils.js');
 
 router.post('/register', createTypeChecker({
   'userName': STRING,
@@ -70,16 +70,14 @@ router.post('/detail', createTypeChecker({
 router.post('/profile/update', createTypeChecker({
   'token': STRING,
   'displayName': STRING,
-  'bio': STRING,
   'overview': STRING,
 }), createTokenChecker(), async (req, res) => {
   const token = req.body.token;
   const displayName = req.body.displayName;
-  const bio = req.body.bio;
   const overview = req.body.overview;
 
   res.json(await userController.updateProfile({
-    token, displayName, bio, overview,
+    token, displayName, overview,
   }));
 });
 
@@ -133,6 +131,134 @@ router.post('/artist-info', createTypeChecker({
 
   res.json(await userController.artistInfo({
     userId, userName,
+  }));
+});
+
+router.post('/all-midi', createTypeChecker({
+  'artistName': STRING,
+}), async (req, res) => {
+  const artistName = req.body.artistName;
+
+  res.json(await userController.allMidi({
+    artistName,
+  }));
+});
+
+router.post('/popular-tracks', createTypeChecker({
+  'artistName': STRING,
+  'limit': NUMBER,
+}), async (req, res) => {
+  const artistName = req.body.artistName;
+  const limit = req.body.limit;
+
+  res.json(await userController.popularTracks({
+    artistName, limit,
+  }));
+});
+
+router.post('/tracks', createTypeChecker({
+  'artistName': STRING,
+}), async (req, res) => {
+  const artistName = req.body.artistName;
+
+  res.json(await userController.tracks({
+    artistName,
+  }));
+});
+
+router.post('/albums', createTypeChecker({
+  'artistName': STRING,
+}), async (req, res) => {
+  const artistName = req.body.artistName;
+
+  res.json(await userController.albums({
+    artistName,
+  }));
+});
+
+router.post('/follow', createTypeChecker({
+  'token': STRING,
+  'artistName': STRING,
+}), createTokenChecker(), async (req, res) => {
+  const token = req.body.token;
+  const artistName = req.body.artistName;
+
+  res.json(await userController.follow({
+    token, artistName,
+  }));
+});
+
+router.post('/unfollow', createTypeChecker({
+  'token': STRING,
+  'artistName': STRING,
+}), createTokenChecker(), async (req, res) => {
+  const token = req.body.token;
+  const artistName = req.body.artistName;
+
+  res.json(await userController.unfollow({
+    token, artistName,
+  }));
+});
+
+router.post('/follow-status', createTypeChecker({
+  'token': STRING,
+  'artistName': STRING,
+}), createTokenChecker(), async (req, res) => {
+  const token = req.body.token;
+  const artistName = req.body.artistName;
+
+  res.json(await userController.followStatus({
+    token, artistName,
+  }));
+});
+
+router.post('/follower-count', createTypeChecker({
+  'artistName': STRING,
+}), async (req, res) => {
+  const artistName = req.body.artistName;
+
+  res.json(await userController.followerCount({
+    artistName,
+  }));
+});
+
+router.post('/liked-tracks', createTypeChecker({
+  'token': STRING,
+}), createTokenChecker(), async (req, res) => {
+  const token = req.body.token;
+
+  res.json(await userController.likedTracks({
+    token,
+  }));
+});
+
+router.post('/liked-albums', createTypeChecker({
+  'token': STRING,
+}), createTokenChecker(), async (req, res) => {
+  const token = req.body.token;
+
+  res.json(await userController.likedAlbums({
+    token,
+  }));
+});
+
+router.post('/follower-artists', createTypeChecker({
+  'token': STRING,
+}), createTokenChecker(), async (req, res) => {
+  const token = req.body.token;
+
+  res.json(await userController.followerArtists({
+    token,
+  }));
+});
+
+router.post('/following-artists', createTypeChecker({
+  'token': STRING,
+}), createTokenChecker(), async (req, res) => {
+  const token = req.body.token;
+
+  res.json(await userController.followingArtists({
+    token,
   }));
 });
 

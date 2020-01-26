@@ -1,5 +1,10 @@
 const User = require('../models/User');
 const Comment = require('../models/Comment');
+const Track = require('../models/Track');
+const Album = require('../models/Album');
+const UserFollowUser = require('../models/UserFollowUser');
+const UserLikeTrack = require('../models/UserLikeTrack');
+const UserLikeAlbum = require('../models/UserLikeAlbum');
 const tokenService = require('../services/tokenService');
 const mongoose = require('mongoose');
 const ObjectId = mongoose.Types.ObjectId;
@@ -39,6 +44,12 @@ exports.register = async function(params) {
     email: params.email,
     passwordSalt: salt,
     passwordSha256: hash,
+    overview: '',
+    avatarUrl: '',
+    followingCount: 0,
+    followerCount: 0,
+    trackCount: 0,
+    albumCount: 0,
   });
 
   return apiSuccess();
@@ -88,7 +99,7 @@ exports.getUserMinimal = async function(params) {
 };
 
 exports.detail = async function(params) {
-  const user = await User.findOne({userName: params.userName}).select('displayName bio overview avatarUrl');
+  const user = await User.findOne({userName: params.userName}).select('displayName  overview avatarUrl');
   if (!user) {
     return apiError(NOT_FOUND);
   }
@@ -100,7 +111,6 @@ exports.updateProfile = async function(params) {
   const userId = tokenService.getUserId(params.token);
   await User.findByIdAndUpdate(userId, {
     displayName: params.displayName,
-    bio: params.bio,
     overview: params.overview,
   });
 
@@ -109,7 +119,7 @@ exports.updateProfile = async function(params) {
 
 exports.userInfo = async function(params) {
   const userId = tokenService.getUserId(params.token);
-  const userInfo = await User.findById(userId).select('userName displayName bio avatarUrl overview');
+  const userInfo = await User.findById(userId).select('userName displayName  avatarUrl overview');
   return apiSuccess(userInfo);
 };
 
@@ -161,16 +171,219 @@ exports.getAvatarUrl = async function(params) {
 
 exports.artistInfo = async function(params) {
   if (params.userId) {
-    const artist = await User.findById(params.userId).select('avatarUrl bio overview followingCount followerCount trackCount albumCount');
+    const artist = await User.findById(params.userId).select('avatarUrl overview followingCount followerCount trackCount albumCount');
     if (!artist) {
       return apiError(NOT_FOUND);
     }
     return apiSuccess(artist);
   } else if (params.userName) {
-    const artist = await User.find({userName: params.userName}).select('avatarUrl bio overview followingCount followerCount trackCount albumCount');
+    const artist = await User.find({userName: params.userName}).select('avatarUrl overview followingCount followerCount trackCount albumCount');
     if (!artist) {
       return apiError(NOT_FOUND);
     }
     return apiSuccess(artist[0]);
   }
+};
+
+exports.allMidi = async function(params) {
+  const tracks = await Track.find({artistName: params.artistName}).sort({releaseDate: -1}).exec();
+  const albums = await Album.find({artistName: params.artistName}).sort({releaseDate: -1}).exec();
+  return apiSuccess(tracks.concat(albums));
+};
+
+exports.popularTracks = async function(params) {
+  const tracks = await Track.find({artistName: params.artistName}).sort({releaseDate: -1}).limit(params.limit).exec();
+  return apiSuccess(tracks);
+};
+
+exports.tracks = async function(params) {
+  const tracks = await Track.find({artistName: params.artistName}).sort({releaseDate: -1}).exec();
+  return apiSuccess(tracks);
+};
+
+exports.albums = async function(params) {
+  const albums = await Album.find({artistName: params.artistName}).sort({releaseDate: -1}).exec();
+  return apiSuccess(albums);
+};
+
+exports.follow = async function(params) {
+  const userId = tokenService.getUserId(params.token);
+  const artist = await User.findOne({userName: params.artistName});
+  if (artist === 0) {
+    return apiError(NOT_FOUND);
+  }
+  const existingCount = await UserFollowUser.find({followingId: userId, followerId: artist.id}).countDocuments();
+  if (existingCount > 0) {
+    // The user already following user
+    return apiError(BAD_REQUEST);
+  }
+  console.log(artist);
+  await Promise.all([
+    UserFollowUser.create({
+      followingId: userId,
+      followerId: artist._id,
+    }),
+    User.findByIdAndUpdate(userId, {
+      $inc: {followingCount: 1},
+    }),
+    User.findByIdAndUpdate(artist._id, {
+      $inc: {followerCount: 1},
+    }),
+  ]);
+
+  return apiSuccess();
+};
+
+exports.unfollow = async function(params) {
+  const userId = tokenService.getUserId(params.token);
+  const artist = await User.findOne({userName: params.artistName});
+  if (!artist) {
+    return apiError(NOT_FOUND);
+  }
+  const existingCount = await UserFollowUser.find({followerId: userId, followingId: artist._id}).countDocuments();
+  if (existingCount === 0) {
+    // The user is not following user
+    return apiError(BAD_REQUEST);
+  }
+  console.log(artist);
+
+  await Promise.all([
+    User.findByIdAndUpdate(userId, {
+      $inc: {followingCount: -1},
+    }),
+    User.findByIdAndUpdate(artist._id, {
+      $inc: {followerCount: -1},
+    }),
+    UserFollowUser.deleteMany({
+      followingId: userId,
+      followerId: artist._id,
+    }),
+  ]);
+
+  return apiSuccess();
+};
+
+exports.followStatus = async function(params) {
+  const userId = tokenService.getUserId(params.token);
+  const artist = await User.findOne({userName: params.artistName});
+  if (!artist) {
+    return apiError(NOT_FOUND);
+  }
+
+  const likeCount = await UserFollowUser.find({followerId: userId, followingId: artist._id}).countDocuments();
+  if (likeCount === 0) {
+    return apiSuccess(false);
+  }
+  return apiSuccess(true);
+};
+
+exports.followerCount = async function(params) {
+  const counts = await User.findOne({userName: params.artistName}).select('followerCount followingCount');
+
+  if (!counts) {
+    return apiError(NOT_FOUND);
+  }
+  return apiSuccess(counts);
+};
+
+exports.likedTracks = async function(params) {
+  const userId = tokenService.getUserId(params.token);
+
+  const query = await UserLikeTrack.aggregate([
+    {$match: {userId: new ObjectId(userId)}},
+    {
+      $lookup: {
+        from: 'tracks',
+        localField: 'trackId',
+        foreignField: '_id',
+        as: 'likes',
+      },
+    },
+    {
+      $unwind: {path: '$likes'},
+    },
+    {
+      $replaceWith: '$likes',
+    },
+  ]).sort({uploadDate: 1}).exec();
+
+  return apiSuccess(query);
+};
+
+exports.likedAlbums = async function(params) {
+  const userId = tokenService.getUserId(params.token);
+
+  const query = await UserLikeAlbum.aggregate([
+    {$match: {userId: new ObjectId(userId)}},
+    {
+      $lookup: {
+        from: 'albums',
+        localField: 'trackId',
+        foreignField: '_id',
+        as: 'likes',
+      },
+    },
+    {
+      $unwind: {path: '$likes'},
+    },
+    {
+      $replaceWith: '$likes',
+    },
+  ]).sort({uploadDate: 1}).exec();
+
+  return apiSuccess(query);
+};
+
+exports.followerArtists = async function(params) {
+  const userId = tokenService.getUserId(params.token);
+
+  const query = await UserFollowUser.aggregate([
+    {$match: {followingId: new ObjectId(userId)}},
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'followingId',
+        foreignField: '_id',
+        as: 'followers',
+      },
+    },
+    {
+      $unwind: {path: '$followers'},
+    },
+    {
+      $replaceWith: '$followers',
+    },
+    {
+      $project: {'userName': 1, 'avatarUrl': 1},
+    },
+  ]).exec();
+
+  return apiSuccess(query);
+};
+
+exports.followingArtists = async function(params) {
+  const userId = tokenService.getUserId(params.token);
+
+  const query = await UserFollowUser.aggregate([
+    {$match: {followerId: new ObjectId(userId)}},
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'followingId',
+        foreignField: '_id',
+        as: 'followings',
+      },
+    },
+    {
+      $unwind: {path: '$followings'},
+    },
+    {
+      $replaceWith: '$followings',
+    },
+    {
+      $project: {'userName': 1, 'avatarUrl': 1},
+    },
+  ]).exec();
+
+  return apiSuccess(query);
 };
