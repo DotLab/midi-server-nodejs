@@ -1,5 +1,7 @@
 const User = require('../models/User');
 const Comment = require('../models/Comment');
+const Album = require('../models/Album');
+const Track = require('../models/Track');
 const tokenService = require('../services/tokenService');
 const {apiError, apiSuccess} = require('./utils');
 const {BAD_REQUEST, FORBIDDEN, NOT_FOUND, calcFileHash} = require('./utils');
@@ -77,11 +79,11 @@ exports.upload = async function(params) {
 };
 
 exports.detail = async function(params) {
-  const make = await Make.findById(params.makeId).select('sourceThingId sourceThingName sourceThingUploaderName pictureUrl uploaderName description printerBrand raft support resolution infill filamentBrand filamentColor filamentMaterial note uploadDate likeCount commentCount');
-  if (!make) {
+  const album = await Album.findById(params.albumId);
+  if (!album) {
     return apiError(NOT_FOUND);
   }
-  return apiSuccess(make);
+  return apiSuccess(album);
 };
 
 exports.like = async function(params) {
@@ -218,4 +220,32 @@ exports.commentList = async function(params) {
 exports.latestMakes = async function(params) {
   const makes = await Make.find({}).sort({uploadDate: -1}).limit(params.limit).exec();
   return apiSuccess(makes);
+};
+
+exports.getAllAlbums = async function(params) {
+  const userId = tokenService.getUserId(params.token);
+  const albums = await Album.find({artistId: userId}).select('title').exec();
+  return apiSuccess(albums);
+};
+
+exports.tracks = async function(params) {
+  const tracks = await Track.find({albumId: params.albumId});
+  return apiSuccess(tracks);
+};
+
+exports.relatedAlbums = async function(params) {
+  const album = await Album.findById(params.albumId);
+  if (!album) {
+    return apiError(NOT_FOUND);
+  }
+
+  const albums = await Album.find({
+    $and: [{artistId: album.artistId}, {_id: {$ne: album._id}}],
+  }).exec();
+  return apiSuccess(albums);
+};
+
+exports.coverUrl = async function(params) {
+  const coverUrl = await Album.find({title: params.title}).select('coverUrl');
+  return apiSuccess(coverUrl.coverUrl);
 };

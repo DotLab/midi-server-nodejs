@@ -4,11 +4,11 @@ const ObjectId = mongoose.Schema.Types.ObjectId;
 module.exports = mongoose.model('Album', {
   artistId: ObjectId,
   artistName: String,
-  artistAvatarUrl: String,
 
   coverUrl: String,
   colors: Array,
 
+  title: String,
   tags: String,
   description: String,
   releaseDate: Date,

@@ -16,12 +16,12 @@ router.post('/upload', createTypeChecker({
 });
 
 router.post('/detail', createTypeChecker({
-  'makeId': OBJECT_ID,
+  'albumId': OBJECT_ID,
 }), async (req, res) => {
-  const makeId = req.body.makeId;
+  const albumId = req.body.albumId;
 
   res.json(await albumController.detail({
-    makeId,
+    albumId,
   }));
 });
 
@@ -117,6 +117,47 @@ router.post('/latest', createTypeChecker({
 
   res.json(await albumController.latestMakes({
     limit,
+  }));
+});
+
+
+router.post('/listing', createTypeChecker({
+  'token': STRING,
+}), createTokenChecker(), async (req, res) => {
+  const token = req.body.token;
+
+  res.json(await albumController.getAllAlbums({
+    token,
+  }));
+});
+
+router.post('/tracks', createTypeChecker({
+  'albumId': OBJECT_ID,
+}), async (req, res) => {
+  const albumId = req.body.albumId;
+
+  res.json(await albumController.tracks({
+    albumId,
+  }));
+});
+
+router.post('/related', createTypeChecker({
+  'albumId': OBJECT_ID,
+}), async (req, res) => {
+  const albumId = req.body.albumId;
+
+  res.json(await albumController.relatedAlbums({
+    albumId,
+  }));
+});
+
+router.post('/coverUrl', createTypeChecker({
+  'title': STRING,
+}), async (req, res) => {
+  const title = req.body.title;
+
+  res.json(await albumController.coverUrl({
+    title,
   }));
 });
 

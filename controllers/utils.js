@@ -38,3 +38,5 @@ exports.calcFileHash = function(buffer) {
   hasher.update(buffer);
   return hasher.digest('hex');
 };
+
+exports.ALBUM = 'Album';

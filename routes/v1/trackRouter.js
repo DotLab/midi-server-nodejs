@@ -21,7 +21,8 @@ router.post('/upload', createTypeChecker({
   'fileSizes': [NUMBER],
   '-coverUrl': STRING,
   'title': STRING,
-  '-type': STRING,
+  'albumTitle': STRING,
+  'type': STRING,
   '-genre': STRING,
   '-tags': STRING,
   '-description': STRING,
@@ -32,13 +33,14 @@ router.post('/upload', createTypeChecker({
   const fileSizes = req.body.fileSizes;
   const coverUrl = req.body.coverUrl;
   const title = req.body.title;
+  const albumTitle = req.body.albumTitle;
   const type = req.body.type;
   const genre = req.body.genre;
   const tags = req.body.tags;
   const description = req.body.description;
 
   res.json(await trackController.upload({
-    token, buffers, fileNames, fileSizes, coverUrl, title, type, genre, tags, description,
+    token, buffers, fileNames, fileSizes, coverUrl, title, albumTitle, type, genre, tags, description,
   }));
 });
 

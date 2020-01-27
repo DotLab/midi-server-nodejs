@@ -5,7 +5,7 @@ const Comment = require('../models/Comment');
 const UserLikeTrack = require('../models/UserLikeTrack');
 const tokenService = require('../services/tokenService');
 const {apiError, apiSuccess} = require('./utils');
-const {BAD_REQUEST, NOT_FOUND, FORBIDDEN, calcFileHash} = require('./utils');
+const {BAD_REQUEST, NOT_FOUND, FORBIDDEN, calcFileHash, ALBUM} = require('./utils');
 const sharp = require('sharp');
 const Vibrant = require('node-vibrant');
 const Server = require('../services/Server');
@@ -52,6 +52,13 @@ exports.upload = async function(params) {
   const userId = tokenService.getUserId(params.token);
   const user = await User.findOne({_id: userId}).select('userName avatarUrl');
 
+  if (params.albumTitle) {
+    const count = await Album.find({title: params.albumTitle}).countDocuments();
+    if (count !== 0) {
+      return apiError(BAD_REQUEST);
+    }
+  }
+
   const trackIds = [];
   const colors = [];
   await Vibrant.from(params.coverUrl).getPalette()
@@ -83,7 +90,6 @@ exports.upload = async function(params) {
     const track = await Track.create({
       artistId: userId,
       artistName: user.userName,
-      artistAvatarUrl: user.avatarUrl,
 
       fileName: params.fileNames[i],
       fileSize: params.fileSizes[i],
@@ -110,14 +116,15 @@ exports.upload = async function(params) {
     $inc: {trackCount: params.buffers.length},
   }).exec();
 
-  if (params.type === 'album') {
+  if (params.type === ALBUM) {
     const album = await Album.create({
       artistId: userId,
       artistName: user.userName,
-      artistAvatarUrl: user.avatarUrl,
 
       coverUrl: params.coverUrl,
       colors: colors,
+
+      title: params.albumTitle,
       tags: params.tags,
       description: params.description,
       releaseDate: new Date(),
@@ -130,11 +137,11 @@ exports.upload = async function(params) {
       $inc: {albumCount: 1},
     }).exec();
 
-    await Promise.all(trackIds.map((id) => {
-      Track.findByIdAndUpdate(id, {
-        $set: {albumId: album.id},
-      });
-    }));
+    console.log(trackIds[0]);
+    await Track.findByIdAndUpdate(trackIds[0], {
+      $set: {albumId: album.id},
+    });
+
     return apiSuccess(album.id);
   } else {
     return apiSuccess(trackIds[0]);

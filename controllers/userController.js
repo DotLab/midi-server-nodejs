@@ -188,7 +188,9 @@ exports.artistInfo = async function(params) {
 exports.allMidi = async function(params) {
   const tracks = await Track.find({artistName: params.artistName}).sort({releaseDate: -1}).exec();
   const albums = await Album.find({artistName: params.artistName}).sort({releaseDate: -1}).exec();
-  return apiSuccess(tracks.concat(albums));
+  console.log(albums, tracks);
+  return apiSuccess(tracks);
+  // return apiSuccess(tracks.concat(albums));
 };
 
 exports.popularTracks = async function(params) {
