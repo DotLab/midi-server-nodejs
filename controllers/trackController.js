@@ -81,21 +81,19 @@ exports.upload = async function(params) {
     const localPath = `${tempPath}/${hash}.mid`;
     const mp3LocalPath = `${tempPath}/${hash}.mp3`;
 
-    const url = server.bucketGetPublicUrl(remotePath);
+    const url = server.bucketGetPublicUrl(mp3RemotePath);
 
     fs.writeFileSync(localPath, params.buffers[i], 'base64');
     const util = require('util');
     const exec = util.promisify(require('child_process').exec);
-    async function toMp3() {
-      try {
-        await exec(`timidity ${localPath} -Ow -o - | ffmpeg -i - -acodec libmp3lame -ab 64k ${mp3LocalPath}`);
-      } catch (err) {
-        console.error(err);
-      }
-    }
-    await toMp3();
-    // exec(`timidity ${localPath} -Ow -o - | ffmpeg -i - -acodec libmp3lame -ab 64k ${mp3LocalPath}`);
 
+    try {
+      await exec(`timidity ${localPath} -Ow -o - | ffmpeg -i - -acodec libmp3lame -ab 64k ${mp3LocalPath}`);
+    } catch (err) {
+      console.error(err);
+    }
+
+    // exec(`timidity ${localPath} -Ow -o - | ffmpeg -i - -acodec libmp3lame -ab 64k ${mp3LocalPath}`);
     // console.log(params.buffers[i]);
     // fs.writeFileSync(localPath, params.buffers[i]);
     await server.bucketUploadPublic(localPath, remotePath);
