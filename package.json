@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "nodemon index.js",
+    "dev": "cross-env GOOGLE_APPLICATION_CREDENTIALS=/mnt/c/Users/Charl/Documents/scarletea-1cf4267af211.json",
     "test": "eslint ."
   },
   "author": "",
@@ -12,15 +13,19 @@
   "dependencies": {
     "body-parser": "^1.19.0",
     "cors": "^2.8.5",
+    "cross-env": "^7.0.2",
     "eslint": "^6.5.1",
     "eslint-config-google": "^0.14.0",
     "express": "^4.17.1",
     "mongoose": "^5.8.2",
     "node-vibrant": "^3.1.5",
-    "sharp": "^0.23.4"
+    "sharp": "^0.25.1"
   },
   "devDependencies": {
-    "@google-cloud/storage": "^4.2.0",
+    "@google-cloud/storage": "^4.5.0",
     "nodemon": "^2.0.2"
+  },
+  "optionalDependencies": {
+    "fsevents": "^2.1.2"
   }
 }

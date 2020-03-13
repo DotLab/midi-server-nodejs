@@ -76,16 +76,33 @@ exports.upload = async function(params) {
       return apiError(BAD_REQUEST);
     }
 
-    const remotePath = `/midi/${hash}.mp3`;
-    const localPath = `${tempPath}/${hash}.mp3`;
+    const remotePath = `/midi/${hash}.mid`;
+    const mp3RemotePath = `/midi/${hash}.mp3`;
+    const localPath = `${tempPath}/${hash}.mid`;
+    const mp3LocalPath = `${tempPath}/${hash}.mp3`;
 
     const url = server.bucketGetPublicUrl(remotePath);
 
     fs.writeFileSync(localPath, params.buffers[i], 'base64');
+    const util = require('util');
+    const exec = util.promisify(require('child_process').exec);
+    async function toMp3() {
+      try {
+        await exec(`timidity ${localPath} -Ow -o - | ffmpeg -i - -acodec libmp3lame -ab 64k ${mp3LocalPath}`);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    await toMp3();
+    // exec(`timidity ${localPath} -Ow -o - | ffmpeg -i - -acodec libmp3lame -ab 64k ${mp3LocalPath}`);
+
     // console.log(params.buffers[i]);
     // fs.writeFileSync(localPath, params.buffers[i]);
     await server.bucketUploadPublic(localPath, remotePath);
     fs.unlink(localPath, () => { });
+
+    await server.bucketUploadPublic(mp3LocalPath, mp3RemotePath);
+    fs.unlink(mp3LocalPath, () => { });
 
     const track = await Track.create({
       artistId: userId,
